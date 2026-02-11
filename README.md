@@ -1,6 +1,6 @@
 # LLM-Prompt-Tests
 
-A collection of standardized prompts designed to benchmark and evaluate the coding capabilities, logic reasoning, and creative output of Large Language Models (LLMs).
+A collection of standardized prompts designed to benchmark and evaluate the coding capabilities, logic reasoning, and creative output of Large Language Models (LLMs). These are to be one-shot tests, if your LLM cannot produce it in one shot then it needs to up its game.
 
 ## 🎯 Purpose
 The goal of this repository is to track how different models (Local LLMs, GPT-4, Claude, Gemini, etc.) handle specific technical challenges. By providing a "Prompt" and comparing it against the "Expected Output," we can visualize the delta between model generations and test agent reliability.
