@@ -1,3 +1,4 @@
+```text
 404notfound:~/security-benchmarks$ python eval2.py -d utils/seceval_dataset/questions.json   -e seceval -B ollama -m "svjack/Qwen3-8B-heretic:latest"   --temperature 0.3  --status-interval 10
 
 ======================================================================
@@ -46,3 +47,4 @@ Total cost: $0.0000
 
 Final Accuracy: 60.80% (1331/2189)
 Results saved to benchmark_results_seceval_svjack_Qwen3-8B-heretic_latest.json
+```
