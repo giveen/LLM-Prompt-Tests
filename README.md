@@ -5,6 +5,14 @@ A collection of standardized prompts designed to benchmark and evaluate the codi
 ## 🎯 Purpose
 The goal of this repository is to track how different models (Local LLMs, GPT-4, Claude, Gemini, etc.) handle specific technical challenges. By providing a "Prompt" and comparing it against the "Expected Output," we can visualize the delta between model generations and test agent reliability.
 
+## 🤖 The Workflow: Agent Handoff
+Thes coding results are generated using a multi-agent system within [LibreChat](https://www.librechat.ai/). Instead of a single prompt, I utilize **Agent Handoffs** to separate concerns:
+
+* **Planner Agent:** Analyzes the initial prompt, breaks down the physics/logic requirements, and creates a step-by-step execution strategy.
+* **Coding Agent:** Takes the roadmap from the Planner and implements the actual Python/Pygame code, focusing on syntax accuracy and performance.
+
+This "relay" ensures that the logic is vetted before a single line of code is written, significantly reducing hallucinations.
+
 ## 📂 Repository Structure
 Each test is organized into its own directory to maintain a clear history of the prompt vs. the actual output.
 EXAMPLE STRUCTURE
