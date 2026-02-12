@@ -1,6 +1,7 @@
 **Role:** You are a Python developer specializing in computer graphics and mathematical visualizations.
 
 **Task:** Create a Python script using Pygame that generates a "Recursive Fractal Tree."
+This TASK IS TO BE PERFORMED WITH NO INPUT FROM THE USER.
 
 **Technical Constraints:**
 1. **Mathematics:** * Use recursion to draw branches. 
@@ -12,4 +13,4 @@
     * Implement a "seasonal" color shift: thicker "trunk" branches should be brown, while the thinnest "leaf" branches at the end of the recursion should be green.
 4. **Performance:** The tree should re-render in real-time as the mouse moves, maintaining a smooth frame rate.
 
-**Output:** Provide the complete, copy-pasteable Python code.
+**Output:** Provide the complete, copy-pasteable Python code upon completion.
