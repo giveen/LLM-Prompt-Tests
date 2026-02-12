@@ -8,8 +8,8 @@ The goal of this repository is to track how different models (Local LLMs, GPT-4,
 ## 🤖 The Workflow: Agent Handoff
 Thes coding results are generated using a multi-agent system within [LibreChat](https://www.librechat.ai/). Instead of a single prompt, I utilize **Agent Handoffs** to separate concerns:
 
-* **Planner Agent:** Analyzes the initial prompt, breaks down the physics/logic requirements, and creates a step-by-step execution strategy.
-* **Coding Agent:** Takes the roadmap from the Planner and implements the actual Python/Pygame code, focusing on syntax accuracy and performance.
+* **Planner Agent:** Analyzes the initial prompt, breaks down the requirements from the prompt, and creates a step-by-step execution strategy.
+* **Coding Agent:** Takes the roadmap from the Planner and implements the actual  code, focusing on syntax accuracy and performance.
 
 This "relay" ensures that the logic is vetted before a single line of code is written, significantly reducing hallucinations.
 
