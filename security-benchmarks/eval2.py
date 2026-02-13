@@ -167,17 +167,52 @@ def parse_result_mcq(result):
 
 # ------------------ Accuracy ------------------
 
-def compute_accuracy(results):
-    correct = 0
+def compute_accuracy(results, mode="strict", partial_weight=0.0):
+    """
+    Compute accuracy with grading `mode`.
+
+    mode: 'strict' (default) | 'partial' | 'flexible'
+
+    Returns (accuracy_pct, correct_count, total_count).
+    Uses the `Status` field on each result when present; otherwise computes
+    status using the grading rules.
+    """
+    correct = 0.0
     total = 0
 
     for r in results:
-        sol = "".join(sorted(set(re.findall(r"[A-D]", r["Solution"].upper()))))
-        pred = parse_result_mcq(r["ModelAnswer"])
-
-        if pred is not None and pred == sol:
-            correct += 1
         total += 1
+
+        # Prefer existing status if runner already set it
+        status = r.get("Status")
+        if status:
+            if status == "Correct":
+                correct += 1
+            elif status == "Partial":
+                correct += partial_weight
+            continue
+
+        # Otherwise compute from Solution and ModelAnswer
+        sol_set = set(re.findall(r"[A-D]", r["Solution"].upper()))
+        pred = parse_result_mcq(r.get("ModelAnswer"))
+        pred_set = set(pred) if pred else set()
+
+        if mode == "strict":
+            if pred_set == sol_set and pred_set:
+                correct += 1
+        elif mode == "partial":
+            if pred_set == sol_set and pred_set:
+                correct += 1
+            elif pred_set and pred_set.issubset(sol_set) and pred_set != sol_set:
+                correct += partial_weight
+        elif mode == "flexible":
+            # model is correct if it includes all solution letters
+            if sol_set and sol_set.issubset(pred_set):
+                correct += 1
+        else:
+            # Fallback to strict
+            if pred_set == sol_set and pred_set:
+                correct += 1
 
     acc = (correct / total * 100) if total else 0.0
     return acc, correct, total
@@ -198,11 +233,12 @@ def format_time(seconds):
     else:
         return f"{secs}s"
 
-def run_eval(dataset, instruction, model, api_base, api_key, provider, save_interval=None, status_interval=None, model_params=None):
+def run_eval(dataset, instruction, model, api_base, api_key, provider, save_interval=None, status_interval=None, model_params=None, grading="strict"):
     results = []
     total_cost = 0.0
     correct_count = 0
     wrong_count = 0
+    partial_count = 0
     start_time = time.time()
     last_status_time = start_time
 
@@ -223,18 +259,39 @@ def run_eval(dataset, instruction, model, api_base, api_key, provider, save_inte
     for idx, q in enumerate(dataset, 1):
         answer, token_info = ask_model(q, instruction, model, api_base, api_key, provider, model_params)
 
+        # Determine status using set-operations for robust grading
+        sol_set = set(re.findall(r"[A-D]", q["Solution"].upper()))
+        pred = parse_result_mcq(answer)
+        pred_set = set(pred) if pred else set()
+
+        status = "Wrong"
+        if grading == "strict":
+            if pred_set == sol_set and pred_set:
+                status = "Correct"
+        elif grading == "partial":
+            if pred_set == sol_set and pred_set:
+                status = "Correct"
+            elif pred_set and pred_set.issubset(sol_set) and pred_set != sol_set:
+                status = "Partial"
+        elif grading == "flexible":
+            if sol_set and sol_set.issubset(pred_set):
+                status = "Correct"
+            # flexible does not mark partials specially
+
+        # Append result including status
         results.append({
             "Question": q["Question"],
             "Choices": q["Choices"],
             "ModelAnswer": answer,
             "Solution": q["Solution"],
+            "Status": status,
         })
 
-        # Track accuracy in real-time
-        sol = "".join(sorted(set(re.findall(r"[A-D]", q["Solution"].upper()))))
-        pred = parse_result_mcq(answer)
-        if pred is not None and pred == sol:
+        # Update rolling counters
+        if status == "Correct":
             correct_count += 1
+        elif status == "Partial":
+            partial_count += 1
         else:
             wrong_count += 1
 
@@ -244,16 +301,16 @@ def run_eval(dataset, instruction, model, api_base, api_key, provider, save_inte
         # Print status at intervals
         current_time = time.time()
         elapsed = current_time - start_time
-        
+
         if status_interval and (current_time - last_status_time) >= status_interval:
             accuracy = (correct_count / idx * 100) if idx > 0 else 0.0
             rate = idx / elapsed if elapsed > 0 else 0
             remaining = (total_questions - idx) / rate if rate > 0 else 0
-            
+
             print(f"[{idx:4d}/{total_questions}] {idx/total_questions*100:5.1f}% | "
-                  f"Correct: {correct_count:4d} | Wrong: {wrong_count:4d} | "
-                  f"Accuracy: {accuracy:5.2f}% | Time: {format_time(elapsed)} | "
-                  f"Est. remaining: {format_time(remaining)} | Cost: ${total_cost:.4f}")
+              f"Correct: {correct_count:4d} | Partial: {partial_count:4d} | Wrong: {wrong_count:4d} | "
+              f"Accuracy: {accuracy:5.2f}% | Time: {format_time(elapsed)} | "
+              f"Est. remaining: {format_time(remaining)} | Cost: ${total_cost:.4f}")
             last_status_time = current_time
 
         if save_interval and idx % save_interval == 0:
@@ -269,7 +326,7 @@ def run_eval(dataset, instruction, model, api_base, api_key, provider, save_inte
     elapsed_total = time.time() - start_time
     print(f"Evaluation Completed")
     print(f"Questions: {idx}/{total_questions}")
-    print(f"Correct: {correct_count} | Wrong: {wrong_count}")
+    print(f"Correct: {correct_count} | Partial: {partial_count} | Wrong: {wrong_count}")
     print(f"Total time: {format_time(elapsed_total)}")
     print(f"Total cost: ${total_cost:.4f}")
     print(f"{'='*70}\n")
@@ -334,6 +391,19 @@ def main():
         default=None,
         help="Presence penalty (-2.0 to 2.0)",
     )
+    parser.add_argument(
+        "-g",
+        "--grading",
+        choices=["strict", "partial", "flexible"],
+        default="strict",
+        help="Grading mode: strict (exact), partial (subset -> Partial), flexible (superset allowed)",
+    )
+    parser.add_argument(
+        "--partial-weight",
+        type=float,
+        default=0.0,
+        help="Weight for Partial status when computing accuracy (e.g., 0.5 for half-credit)",
+    )
     args = parser.parse_args()
 
     fetch_model_pricing(args.model)
@@ -372,10 +442,18 @@ def main():
         args.save_interval,
         args.status_interval,
         model_params if model_params else None,
+        grading=args.grading,
     )
 
-    acc, correct, total = compute_accuracy(results)
-    print(f"Final Accuracy: {acc:.2f}% ({correct}/{total})")
+    acc, correct, total = compute_accuracy(results, mode=args.grading, partial_weight=args.partial_weight)
+    # Format correct count: show one decimal when partials are weighted/non-integer
+    if args.partial_weight and args.partial_weight != 0.0:
+        correct_display = f"{correct:.1f}"
+    else:
+        # show integer when possible
+        correct_display = f"{int(correct)}" if float(correct).is_integer() else f"{correct:.1f}"
+
+    print(f"Final Accuracy: {acc:.2f}% ({correct_display}/{total})")
 
     safe_model = "".join(c if c.isalnum() or c in "-_" else "_" for c in args.model)
     out_file = f"benchmark_results_{args.eval}_{safe_model}.json"
