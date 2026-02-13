@@ -100,6 +100,38 @@ Use these to control model behavior:
 - `--frequency-penalty FLOAT` : Frequency penalty (-2.0 to 2.0)
 - `--presence-penalty FLOAT` : Presence penalty (-2.0 to 2.0)
 
+## ✅ Grading Options (MCQ)
+
+- `-g/--grading {strict,partial,flexible}` : Choose the grading mode for multiple-choice questions.
+  - `strict` (default): only exact matches (pred == solution) count as Correct.
+  - `partial`: predictions that are a non-empty proper subset of the solution are flagged `Partial` (not counted as Correct by default).
+  - `flexible`: any prediction that contains all solution letters (superset) is treated as Correct even if it includes extra letters.
+
+- `--partial-weight FLOAT` : Weight given to `Partial` answers when computing final accuracy. Default `0.0`.
+  - Set to `0.5` to give half-credit for Partial answers (e.g., Partial contributes 0.5 to the correct count).
+
+When to use:
+- Use `strict` for conservative, exact scoring and reproducible comparisons.
+- Use `partial` when you want to measure whether the model found some (but not all) correct options — useful for diagnostic/insightful reporting.
+- Use `flexible` when you prefer a lenient measure that rewards answers containing all correct options even if extra incorrect options are present.
+
+Expected impact:
+- `partial` mode adds a `Partial` column to real-time status and per-question `"Status": "Partial"` in results. By default these do not increase accuracy unless `--partial-weight` is set.
+- `--partial-weight 0.5` will increase the reported correct count by 0.5 for each Partial; final accuracy will reflect fractional correct counts (the script displays one decimal when partials are used).
+- `flexible` mode typically raises accuracy compared to `strict` because supersets that include all solution letters now count as Correct.
+
+Example CLI snippets:
+```bash
+# partial mode, track partials but do not count them in accuracy
+python eval2.py -d utils/seceval_dataset/questions.json -e seceval -B ollama -m svjack/Qwen3-8B-heretic:latest -g partial --status-interval 10
+
+# partial mode with half-credit for Partial answers
+python eval2.py -d utils/seceval_dataset/questions.json -e seceval -B ollama -m svjack/Qwen3-8B-heretic:latest -g partial --partial-weight 0.5 --status-interval 10
+
+# flexible (lenient) grading
+python eval2.py -d utils/seceval_dataset/questions.json -e seceval -B ollama -m svjack/Qwen3-8B-heretic:latest -g flexible --status-interval 10
+```
+
 ## 📈 With Progress Tracking
 
 ```bash
